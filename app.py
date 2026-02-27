@@ -10,6 +10,19 @@ from reportlab.lib.colors import CMYKColor, HexColor
 from io import BytesIO
 import math
 from pypdf import PdfWriter, PdfReader
+import requests
+
+# === NUEVO: CONFIGURACIÓN DE GOOGLE SHEETS ===
+# Aquí es donde configuras los enlaces de cada hotel.
+# MUY IMPORTANTE: Asegúrate de que el enlace termine en '/export?format=xlsx'
+HOTELES_CONFIG = {
+    "SH Villa Gadea": "https://docs.google.com/spreadsheets/d/1yzm2BXG1NiU4Oruc52fy63F7_yjAKHx8/export?format=xlsx",
+    "SH Valencia Palace": "https://docs.google.com/spreadsheets/d/192k9N67nIXd-4aUBUChSvXWeWnjUPp3l/export?format=xlsx",
+    "SH Calle Colón": "",
+    "SH Castellón": "",
+    "SH Avenida del Puerto": "",
+    "SH Avenida de Francia": ""
+}
 
 # --- CONFIGURACIÓN ESTATICAS ---
 # Colores (CMYK: C=1, M=0.78, Y=0.29, K=0.14)
@@ -817,30 +830,50 @@ import time
 
 # Dynamic file path based on hotel
 hotel_filename = hotel_seleccionado.replace(" ", "_") + ".xlsx"
-file_path = os.path.join("data", hotel_filename)
 
-# Fallback to master if specific hotel file doesn't exist yet (optional behavior, keeping it strict for now)
-if not os.path.exists(file_path):
-    # Using a generic placeholder or the master if we want to be forgiving. 
-    # Let's enforce the specific file to match the requirement: "varios excel separados por hotel"
-    pass
+# 1. Comprobar si hay URL de Google Sheets configurada
+sheets_url = HOTELES_CONFIG.get(hotel_seleccionado, "")
+using_google_sheets = bool(sheets_url)
+
+# 2. Descargar el archivo de Google Sheets o usar el local
+target_path = ""
+is_temp_copy = False
+excel_ok = False
+download_error = ""
+
+if using_google_sheets:
+    try:
+        response = requests.get(sheets_url, timeout=10)
+        response.raise_for_status() 
+        temp_filename = f"temp_download_{int(time.time())}.xlsx"
+        with open(temp_filename, 'wb') as f:
+            f.write(response.content)
+        target_path = temp_filename
+        is_temp_copy = True
+        excel_ok = True
+    except Exception as e:
+        download_error = str(e)
+        excel_ok = False
+else:
+    # Usar archivo local de fallback
+    file_path = os.path.join("data", hotel_filename)
+    if os.path.exists(file_path):
+        try:
+            temp_filename = f"temp_read_{int(time.time())}.xlsx"
+            shutil.copy(file_path, temp_filename)
+            target_path = temp_filename
+            is_temp_copy = True
+            excel_ok = True
+        except:
+            target_path = file_path
+            excel_ok = True
 
 # Silent checks
 fonts_ok = register_fonts()
 folders_ok = os.path.exists("data") and os.path.exists("assets")
-excel_ok = os.path.exists(file_path)
 
 valid_sheets = ["Selecciona tipo de carta..."]
-if excel_ok:
-    target_path = file_path
-    is_temp_copy = False
-    try:
-        temp_filename = f"temp_read_{int(time.time())}.xlsx"
-        shutil.copy(file_path, temp_filename)
-        target_path = temp_filename
-        is_temp_copy = True
-    except:
-        pass
+if excel_ok and target_path:
         
     try:
         with pd.ExcelFile(target_path) as xls:
@@ -868,7 +901,14 @@ with col_sys:
     
     fonts_text = "Fuentes activadas (ok)" if fonts_ok else "Fuentes activadas (pendiente)"
     folders_text = "Estructura de carpetas detectada (ok)" if folders_ok else "Faltan carpetas (error)"
-    excel_text = f"Excel {hotel_filename} (ok)" if excel_ok else f"Falta {hotel_filename} (error)"
+    
+    if using_google_sheets:
+        if excel_ok:
+            excel_text = "Conectado a Google Sheets (ok)"
+        else:
+            excel_text = f"Error en Google Sheets: {download_error}"
+    else:
+        excel_text = f"Excel local {hotel_filename} (ok)" if excel_ok else f"Falta {hotel_filename} (error)"
     
     st.markdown(f"""
     <div class='status-item' style='color: {"#16A34A" if fonts_ok else "#DC2626"}'>{fonts_text}</div>
@@ -894,16 +934,7 @@ with col_btn2:
     if st.button("Generar menú", type="primary", disabled=not is_ready, use_container_width=True):
         with st.spinner("Compilando PDF..."):
             try:
-                target_path = file_path
-                is_temp_copy = False
-                try:
-                    temp_filename = f"temp_read_{int(time.time())}.xlsx"
-                    shutil.copy(file_path, temp_filename)
-                    target_path = temp_filename
-                    is_temp_copy = True
-                except:
-                    pass
-                    
+                # Target path was already downloaded/copied above. We just need to read it.
                 df_run = pd.read_excel(target_path, sheet_name=tipo_carta)
                 
                 if is_temp_copy and os.path.exists(target_path):
