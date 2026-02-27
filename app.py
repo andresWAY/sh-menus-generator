@@ -301,7 +301,12 @@ def draw_bg_on_canvas(c, bg_name, w, h, bleed):
             break
             
     if path_found:
-        c.drawImage(path_found, 0, 0, width=w, height=h, preserveAspectRatio=False)
+        if bleed:
+            c.drawImage(path_found, 0, 0, width=w, height=h, preserveAspectRatio=False)
+        else:
+            img_w = w + (2 * BLEED)
+            img_h = h + (2 * BLEED)
+            c.drawImage(path_found, -BLEED, -BLEED, width=img_w, height=img_h, preserveAspectRatio=False)
 
 def generate_pdf_reportlab(df, use_bleed, hotel_name="", is_drinks=False):
     buffer = BytesIO()
@@ -438,16 +443,23 @@ def generate_pdf_reportlab(df, use_bleed, hotel_name="", is_drinks=False):
             desc_es = str(row['DESC_ES']) if pd.notna(row['DESC_ES']) else ""
             desc_en = str(row.get('DESC_EN', '')).lower() if pd.notna(row.get('DESC_EN', '')) else ""
             
+            def fmt_price(p_val):
+                if pd.isna(p_val) or str(p_val).strip() == "" or str(p_val) == "nan": return ""
+                try:
+                    f = float(p_val)
+                    if f.is_integer(): return str(int(f))
+                    s = f"{f:.2f}".rstrip('0').rstrip('.')
+                    return s.replace('.', ',')
+                except:
+                    return str(p_val)
+
             price_str_1 = ""
             price_str_2 = ""
             if is_drinks:
-                 p_bot = str(row.get('PRECIO_BOTELLA',''))
-                 p_copa = str(row.get('PRECIO_COPA',''))
-                 if p_bot and p_bot != 'nan': price_str_1 = p_bot
-                 if p_copa and p_copa != 'nan': price_str_2 = p_copa
+                 price_str_1 = fmt_price(row.get('PRECIO_BOTELLA'))
+                 price_str_2 = fmt_price(row.get('PRECIO_COPA'))
             else:
-                 p = str(row.get('PRECIO',''))
-                 if p and p != 'nan': price_str_1 = p
+                 price_str_1 = fmt_price(row.get('PRECIO'))
             
             allergens = str(row.get('ALERGENOS', '')) if pd.notna(row.get('ALERGENOS', '')) else ""
             if allergens == "nan": allergens = ""
@@ -547,7 +559,40 @@ def generate_pdf_reportlab(df, use_bleed, hotel_name="", is_drinks=False):
     # --- 3. ALERGENOS JPG ---
     alergenos_path = os.path.join("assets/static", "alergenos.jpg")
     if os.path.exists(alergenos_path):
-        draw_page_image(c, alergenos_path, page_width, page_height, use_bleed)
+        draw_page_image(c, alergenos_path, page_width, page_height, use_bleed, auto_show=False)
+        
+        # Añadir cabecera (Hotel - RAYA - Restaurante) a la página de alérgenos
+        y_header = page_height - origin_y - (11 * MM)
+        x_left_cut = origin_x
+        x_right_cut = origin_x + PAGE_WIDTH
+        x_header_left = x_left_cut + (17 * MM)
+        x_header_right = x_right_cut - (17 * MM)
+        
+        c.setFillColor(HEADER_COLOR)
+        hotel_str = display_name.upper() if display_name else ""
+        if hotel_str:
+            draw_text_with_tracking(c, x_header_left, y_header, hotel_str, FONT_MEDIUM, 8.8, tracking=-30, align='left')
+            
+        hotel_raw_width = c.stringWidth(hotel_str, FONT_MEDIUM, 8.8) if hotel_str else 0
+        char_space = (-30 / 1000.0) * 8.8
+        hotel_width = hotel_raw_width + (len(hotel_str) - 1) * char_space if len(hotel_str) > 1 else hotel_raw_width
+        
+        rest_str = "RESTAURANTE"
+        draw_text_with_tracking(c, x_header_right, y_header, rest_str, FONT_MEDIUM, 8.8, tracking=-30, align='right')
+        rest_raw_width = c.stringWidth(rest_str, FONT_MEDIUM, 8.8)
+        rest_width = rest_raw_width + (len(rest_str) - 1) * char_space if len(rest_str) > 1 else rest_raw_width
+        
+        gap = 4 * MM
+        line_start = x_header_left + hotel_width + gap
+        line_end = x_header_right - rest_width - gap
+        
+        if line_end > line_start:
+            c.setStrokeColor(HEADER_COLOR)
+            c.setLineWidth(0.2)
+            line_y = y_header + (8.8 * 0.3)
+            c.line(line_start, line_y, line_end, line_y)
+            
+        c.showPage()
 
     c.save()
     buffer.seek(0)
