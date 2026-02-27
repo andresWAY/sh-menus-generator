@@ -897,12 +897,6 @@ if excel_ok and target_path:
             valid_sheets.extend(sheets)
     except:
         pass
-    finally:
-        if is_temp_copy and os.path.exists(target_path):
-            try:
-                os.remove(target_path)
-            except:
-                pass
 
 tipo_carta = st.selectbox("Tipo de carta", valid_sheets, label_visibility="collapsed")
 
