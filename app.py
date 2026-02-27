@@ -19,9 +19,7 @@ HOTELES_CONFIG = {
     "SH Villa Gadea": "https://docs.google.com/spreadsheets/d/1yzm2BXG1NiU4Oruc52fy63F7_yjAKHx8/export?format=xlsx",
     "SH Valencia Palace": "https://docs.google.com/spreadsheets/d/192k9N67nIXd-4aUBUChSvXWeWnjUPp3l/export?format=xlsx",
     "SH Calle Colón": "",
-    "SH Castellón": "",
-    "SH Avenida del Puerto": "",
-    "SH Avenida de Francia": ""
+    "SH Inglés": "",
 }
 
 # --- CONFIGURACIÓN ESTATICAS ---
@@ -782,6 +780,14 @@ st.markdown("""
         margin-bottom: 1rem;
     }
     
+    .centered-section {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        width: 100%;
+    }
+    
     .status-item {
         font-size: 0.9rem;
         margin-bottom: 0.5rem;
@@ -795,6 +801,11 @@ st.markdown("""
         width: 100%;
         max-width: 200px;
     }
+    .stCheckbox {
+        display: flex;
+        justify-content: center;
+        width: 100%;
+    }
     
     .stCheckbox label {
         color: #374151 !important;
@@ -805,7 +816,11 @@ st.markdown("""
     .stCheckbox div[data-testid="stWidgetLabel"] p {
         font-size: 0.9rem !important;
     }
-    
+    /* Hide Streamlit Header, Menu, and Footer */
+    #MainMenu {visibility: hidden;}
+    header {visibility: hidden;}
+    footer {visibility: hidden;}
+
     /* Adjust top padding of the whole app */
     .block-container {
         padding-top: 2rem !important;
@@ -815,11 +830,11 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 st.markdown("<div class='main-title'>Generador menús<br><span>SH HOTELS</span></div>", unsafe_allow_html=True)
-st.markdown("<div class='subtitle'>Accede a <b>SH-menus\\data</b>, edita el <b>Excel master</b> y vuelve aquí para<br>generar un nuevo menú en PDF listo para imprimir.</div>", unsafe_allow_html=True)
+st.markdown("<div class='subtitle'>Accede a los <b>Google Sheets</b>, edita el contenido y vuelve aquí para<br>generar tu PDF listo para impresión.</div>", unsafe_allow_html=True)
 
 # 1. SELECCIONA HOTEL
 st.markdown("<div class='section-title'>Selecciona hotel...</div>", unsafe_allow_html=True)
-hoteles = ["SH Jávea", "SH Calle Colón", "SH Castellón", "SH Avenida del Puerto", "SH Avenida de Francia", "SH Villa Gadea"]
+hoteles = list(HOTELES_CONFIG.keys())
 hotel_seleccionado = st.radio("Hotel", hoteles, horizontal=True, label_visibility="collapsed")
 
 # 2. SELECCIONA TIPO
@@ -877,8 +892,8 @@ if excel_ok and target_path:
         
     try:
         with pd.ExcelFile(target_path) as xls:
-            # Exclude 'ITEMS' sheet from the dropdown
-            sheets = [s for s in xls.sheet_names if s != "ITEMS"]
+            # Exclude 'ITEMS' and 'CONFIGURACIÓN' sheets from the dropdown
+            sheets = [s for s in xls.sheet_names if s not in ["ITEMS", "CONFIGURACIÓN", "Configuración"]]
             valid_sheets.extend(sheets)
     except:
         pass
@@ -894,35 +909,46 @@ tipo_carta = st.selectbox("Tipo de carta", valid_sheets, label_visibility="colla
 # 3. CONFIRMAR
 st.markdown("<div class='section-title'>Confirmar...</div>", unsafe_allow_html=True)
 
-col_sys, col_conf = st.columns(2, gap="large")
+st.markdown("""
+<div class='centered-section'>
+    <div class='card-title'>Configuración</div>
+</div>
+""", unsafe_allow_html=True)
 
-with col_sys:
-    st.markdown("<div class='card-title'>Sistema</div>", unsafe_allow_html=True)
-    
-    fonts_text = "Fuentes activadas (ok)" if fonts_ok else "Fuentes activadas (pendiente)"
-    folders_text = "Estructura de carpetas detectada (ok)" if folders_ok else "Faltan carpetas (error)"
-    
-    if using_google_sheets:
-        if excel_ok:
-            excel_text = "Conectado a Google Sheets (ok)"
-        else:
-            excel_text = f"Error en Google Sheets: {download_error}"
-    else:
-        excel_text = f"Excel local {hotel_filename} (ok)" if excel_ok else f"Falta {hotel_filename} (error)"
-    
-    st.markdown(f"""
-    <div class='status-item' style='color: {"#16A34A" if fonts_ok else "#DC2626"}'>{fonts_text}</div>
-    <div class='divider'></div>
-    <div class='status-item' style='color: {"#16A34A" if folders_ok else "#DC2626"}'>{folders_text}</div>
-    <div class='divider'></div>
-    <div class='status-item' style='color: {"#16A34A" if excel_ok else "#DC2626"}'>{excel_text}</div>
-    """, unsafe_allow_html=True)
-    
-with col_conf:
-    st.markdown("<div class='card-title'>Configuración</div>", unsafe_allow_html=True)
+# To perfectly center Streamlit checkboxes, we often put them in a column
+col_spacer1, col_center, col_spacer2 = st.columns([1, 2, 1])
+with col_center:
     use_bleed = st.checkbox("Añadir sangre de 3mm")
-    st.markdown("<div class='divider' style='margin-top: 10px; margin-bottom: 10px;'></div>", unsafe_allow_html=True)
     use_marks = st.checkbox("Añadir marcas de corte")
+
+st.markdown("""
+<div class='centered-section'>
+    <div class='divider' style='margin: 15px auto;'></div>
+    <br>
+    <div class='card-title'>Sistema</div>
+</div>
+""", unsafe_allow_html=True)
+
+fonts_text = "Fuentes activadas (ok)" if fonts_ok else "Fuentes activadas (pendiente)"
+folders_text = "Estructura de carpetas detectada (ok)" if folders_ok else "Faltan carpetas (error)"
+
+if using_google_sheets:
+    if excel_ok:
+        excel_text = "Conectado a Google Sheets (ok)"
+    else:
+        excel_text = f"Error en Google Sheets: {download_error}"
+else:
+    excel_text = f"Excel local {hotel_filename} (ok)" if excel_ok else f"Falta {hotel_filename} (error)"
+
+st.markdown(f"""
+<div class='centered-section' style='margin-bottom: 2rem;'>
+    <div class='status-item' style='color: {"#16A34A" if fonts_ok else "#DC2626"}'>{fonts_text}</div>
+    <div class='divider' style='margin: 8px auto;'></div>
+    <div class='status-item' style='color: {"#16A34A" if folders_ok else "#DC2626"}'>{folders_text}</div>
+    <div class='divider' style='margin: 8px auto;'></div>
+    <div class='status-item' style='color: {"#16A34A" if excel_ok else "#DC2626"}'>{excel_text}</div>
+</div>
+""", unsafe_allow_html=True)
 
 # 4. BOTON GENERAR
 is_ready = excel_ok and tipo_carta != "Selecciona tipo de carta..."
