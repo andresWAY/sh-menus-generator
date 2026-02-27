@@ -1,0 +1,6 @@
+
+    Por favor, coloca aquí tus imágenes de fondo (.jpg):
+    - [NOMBRE_CATEGORIA].jpg (Ej: ENSALADAS.jpg)
+    - GENERICO.jpg (Para segundas páginas de categoría)
+    - VACIO.jpg (Para páginas de relleno)
+    

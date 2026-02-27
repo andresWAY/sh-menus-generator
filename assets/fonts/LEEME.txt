@@ -1,0 +1,6 @@
+
+    Por favor, coloca aquí tus fuentes tipográficas:
+    - Brockmann-SemiBold.ttf
+    - Brockmann-Medium.ttf
+    - Brockmann-RegularItalic.ttf
+    
